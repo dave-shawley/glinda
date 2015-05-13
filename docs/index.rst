@@ -4,5 +4,6 @@ Documentation
 =============
 .. toctree::
 
+   testing
    hacking
    changelog
