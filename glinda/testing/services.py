@@ -1,3 +1,10 @@
+import socket
+
+from tornado import gen, httpserver, web
+
+from glinda import httpcompat
+
+
 class ServiceLayer(object):
     """
     Represents any number of HTTP services.
@@ -26,16 +33,28 @@ class ServiceLayer(object):
 
     def __init__(self):
         super(ServiceLayer, self).__init__()
+        self._application = _Application()
+        self._server = httpserver.HTTPServer(self._application)
+        self._services = {}
 
-    def add_endpoint(self, service, resource):
+    def add_endpoint(self, service, *resource):
         """
         Register an endpoint that a service provides.
 
         :param str service: name that you refer to this service by
-        :param str resource: path to install into this service
+        :param resource: path to install into this service
+
+        Elements of the resource path will be quoted as required by
+        :rfc:`7230` before they are joined by a slash.
 
         """
-        pass
+        try:
+            service_instance = self._services[service]
+        except KeyError:
+            service_instance = _Service()
+            self._server.add_socket(service_instance.acceptor)
+            self._services[service] = service_instance
+        self._application.add_endpoint(service_instance, *resource)
 
     def get_service_url(self, service, *path, **query):
         """
@@ -46,8 +65,18 @@ class ServiceLayer(object):
         :param query: optional query parameters to attach to the URL
         :return: the absolute URL that identifies the specified request
 
+        Elements of the resource path will be quoted as required by
+        :rfc:`7230` before they are joined by a slash.  The same is
+        true for the `query` parameters.
+
         """
-        pass
+        service_instance = self._services[service]
+        return httpcompat.urlunsplit((
+            'http', service_instance.host,
+            '/'.join(httpcompat.quote(segment) for segment in path),
+            httpcompat.urlencode(sorted(query.items())),
+            None,
+        ))
 
     def add_response(self, service, request, response):
         """
@@ -90,3 +119,73 @@ class Response(object):
 
     def __init__(self, status, reason=None, body=None, headers=None):
         super(Response, self).__init__()
+
+
+class _Service(object):
+    """
+    A singular dependent HTTP service.
+
+    A service is a collection of related endpoints that is
+    attached to a specific port on localhost.
+
+    """
+
+    def __init__(self):
+        super(_Service, self).__init__()
+        self.acceptor = socket.socket(socket.AF_INET, socket.SOCK_STREAM,
+                                      socket.IPPROTO_TCP)
+        self.acceptor.setblocking(0)
+        self.acceptor.bind(('127.0.0.1', 0))
+        self.acceptor.listen(10)
+        self.host = '%s:%d' % self.acceptor.getsockname()
+
+
+class _Application(web.Application):
+    """
+    Tornado application that implements the service abstraction.
+
+    This application glues the :class:`_Service` instances to the
+    ioloop.  Most of the logic is in the :class:`_Service` instances
+    and the :class:`ServiceLayer` instance.
+
+    """
+
+    def add_endpoint(self, service, *path):
+        endpoint = '/'.join(httpcompat.quote(segment)
+                            for segment in path)
+        if not endpoint.startswith('/'):
+            endpoint = '/{0}'.format(endpoint)
+        handler = web.url(endpoint, _ServiceHandler,
+                          kwargs={'service': service})
+        if self.handlers:
+            self.handlers[-1][1].append(handler)
+        else:
+            self.add_handlers('.*', [handler])
+
+
+class _ServiceHandler(web.RequestHandler):
+    """
+    Individual service endpoint.
+
+    Each endpoint is handled by an instance of this class.  It
+    does little more than proxy requests between the ioloop and
+    the :class:`_Service` instances.
+
+    """
+
+    def __init__(self, *args, **kwargs):
+        self.service = kwargs.pop('service')
+        super(_ServiceHandler, self).__init__(*args, **kwargs)
+
+    @gen.coroutine
+    def _do_request(self, *args, **kwargs):
+        raise web.HTTPError(405)
+
+    connect = _do_request
+    delete = _do_request
+    get = _do_request
+    head = _do_request
+    patch = _do_request
+    post = _do_request
+    put = _do_request
+    trace = _do_request
