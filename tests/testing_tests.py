@@ -48,7 +48,7 @@ class ServiceUrlTests(tornado.testing.AsyncTestCase):
 class EndpointTests(tornado.testing.AsyncTestCase):
 
     @tornado.testing.gen_test
-    def test_that_endpoint_responds(self):
+    def test_that_endpoint_responds_with_405_by_default(self):
         service_layer = services.ServiceLayer()
         service_layer.add_endpoint('service', 'resource')
         client = httpclient.AsyncHTTPClient()
@@ -57,3 +57,16 @@ class EndpointTests(tornado.testing.AsyncTestCase):
                 service_layer.get_service_url('service', 'resource'))
         except httpclient.HTTPError as error:
             self.assertEqual(error.code, 405)
+
+    @tornado.testing.gen_test
+    def test_that_endpoint_responds_with_programmed_response(self):
+        service_layer = services.ServiceLayer()
+        service_layer.add_endpoint('service', 'resource')
+        service_layer.add_response('service',
+                                   services.Request('GET', '/resource'),
+                                   services.Response(222))
+
+        client = httpclient.AsyncHTTPClient()
+        response = yield client.fetch(
+            service_layer.get_service_url('service', 'resource'))
+        self.assertEqual(response.code, 222)

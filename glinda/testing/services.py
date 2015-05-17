@@ -1,3 +1,4 @@
+import collections
 import socket
 
 from tornado import gen, httpserver, web
@@ -87,7 +88,7 @@ class ServiceLayer(object):
         :param .Response response: value to be returned from the service
 
         """
-        pass
+        self._services[service].add_response(request, response)
 
 
 class Request(object):
@@ -104,6 +105,10 @@ class Request(object):
 
     def __init__(self, method, *path):
         super(Request, self).__init__()
+        self.method = method
+        self.resource = '/'.join(httpcompat.quote(segment) for segment in path)
+        if not self.resource.startswith('/'):
+            self.resource = '/' + self.resource
 
 
 class Response(object):
@@ -119,6 +124,10 @@ class Response(object):
 
     def __init__(self, status, reason=None, body=None, headers=None):
         super(Response, self).__init__()
+        self.status = status
+        self.reason = reason or 'Unspecified'
+        self.body = body
+        self.headers = (headers or {}).copy()
 
 
 class _Service(object):
@@ -126,7 +135,9 @@ class _Service(object):
     A singular dependent HTTP service.
 
     A service is a collection of related endpoints that is
-    attached to a specific port on localhost.
+    attached to a specific port on localhost.  It is
+    responsible for keeping track of the programmed responses
+    and dispatching them when requests come in.
 
     """
 
@@ -138,6 +149,26 @@ class _Service(object):
         self.acceptor.bind(('127.0.0.1', 0))
         self.acceptor.listen(10)
         self.host = '%s:%d' % self.acceptor.getsockname()
+        self._responses = collections.defaultdict(list)
+
+    def add_response(self, request, response):
+        """
+        Configure the service to respond to a specific request.
+
+        :param .Request request:
+        :param .Response response:
+
+        """
+        self._responses[request.method, request.resource].append(response)
+
+    def get_next_response(self, tornado_request):
+        """
+        Retrieve the next response for a request.
+
+        :param tornado.web.httpserver.HTTPRequest:
+
+        """
+        return self._responses[tornado_request.method, tornado_request.uri].pop(0)
 
 
 class _Application(web.Application):
@@ -179,7 +210,12 @@ class _ServiceHandler(web.RequestHandler):
 
     @gen.coroutine
     def _do_request(self, *args, **kwargs):
-        raise web.HTTPError(405)
+        try:
+            response = self.service.get_next_response(self.request)
+        except IndexError:
+            raise web.HTTPError(405)
+
+        self.set_status(response.status, response.reason)
 
     connect = _do_request
     delete = _do_request
