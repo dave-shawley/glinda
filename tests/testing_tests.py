@@ -51,14 +51,14 @@ class EndpointTests(tornado.testing.AsyncTestCase):
         self.service_layer = services.ServiceLayer()
 
     @tornado.testing.gen_test
-    def test_that_endpoint_responds_with_405_by_default(self):
+    def test_that_endpoint_responds_with_456_by_default(self):
         service = self.service_layer['service']
         service.add_endpoint('resource')
         client = httpclient.AsyncHTTPClient()
         try:
             yield client.fetch(service.url_for('resource'))
         except httpclient.HTTPError as error:
-            self.assertEqual(error.code, 405)
+            self.assertEqual(error.code, 456)
 
     @tornado.testing.gen_test
     def test_that_endpoint_responds_with_programmed_response(self):

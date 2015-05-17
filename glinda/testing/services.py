@@ -157,7 +157,13 @@ class Service(object):
         :param tornado.web.httpserver.HTTPRequest:
 
         """
-        return self._responses[tornado_request.method, tornado_request.uri].pop(0)
+        key = tornado_request.method, tornado_request.uri
+        try:
+            return self._responses[key].pop(0)
+        except IndexError:
+            raise web.HTTPError(456, 'Unexpected request - %s %s',
+                                tornado_request.method, tornado_request.uri,
+                                reason='Test Configuration Error')
 
 
 class _Application(web.Application):
@@ -195,11 +201,7 @@ class _ServiceHandler(web.RequestHandler):
 
     @gen.coroutine
     def _do_request(self, *args, **kwargs):
-        try:
-            response = self.service.get_next_response(self.request)
-        except IndexError:
-            raise web.HTTPError(405)
-
+        response = self.service.get_next_response(self.request)
         self.set_status(response.status, response.reason)
 
     connect = _do_request
