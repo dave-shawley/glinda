@@ -6,6 +6,9 @@ Testing Utilities
 .. autoclass:: ServiceLayer
    :members:
 
+.. autoclass:: Service
+   :members:
+
 .. autoclass:: Request
    :members:
 

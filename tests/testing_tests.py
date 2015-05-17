@@ -9,11 +9,11 @@ class ServiceUrlTests(tornado.testing.AsyncTestCase):
 
     def setUp(self):
         super(ServiceUrlTests, self).setUp()
-        self.service_layer = services.ServiceLayer()
-        self.service_layer.add_endpoint('service')
+        service_layer = services.ServiceLayer()
+        self.service = service_layer.get_service('service')
 
     def test_that_get_service_url_references_service(self):
-        service_url = self.service_layer.get_service_url('service')
+        service_url = self.service.url_for()
         url = httpcompat.urlsplit(service_url)
         self.assertEqual(url.scheme, 'http')
         self.assertEqual(url.hostname, '127.0.0.1')
@@ -23,14 +23,13 @@ class ServiceUrlTests(tornado.testing.AsyncTestCase):
         self.assertEqual(url.fragment, '')
 
     def test_that_get_service_url_quotes_path(self):
-        service_url = self.service_layer.get_service_url(
-            'service', 'path that', 'needs', 'quo+ing')
+        service_url = self.service.url_for('path that', 'needs', 'quo+ing')
         url = httpcompat.urlsplit(service_url)
         self.assertEqual(url.path.lower(), '/path%20that/needs/quo%2bing')
 
     def test_that_get_service_url_quotes_query(self):
-        service_url = self.service_layer.get_service_url(
-            'service', a='something with spaces', b='!@#$%^&*()')
+        service_url = self.service.url_for(a='something with spaces',
+                                           b='!@#$%^&*()')
         url = httpcompat.urlsplit(service_url)
         self.assertEqual(
             url.query.lower(),
@@ -38,8 +37,8 @@ class ServiceUrlTests(tornado.testing.AsyncTestCase):
         )
 
     def test_that_get_service_url_sorts_query(self):
-        service_url = self.service_layer.get_service_url(
-            'service', first=1, second=2, third=3, fini='first')
+        service_url = self.service.url_for(first=1, second=2, third=3,
+                                           fini='first')
         url = httpcompat.urlsplit(service_url)
         self.assertEqual(url.query.lower(),
                          'fini=first&first=1&second=2&third=3')
@@ -47,26 +46,26 @@ class ServiceUrlTests(tornado.testing.AsyncTestCase):
 
 class EndpointTests(tornado.testing.AsyncTestCase):
 
+    def setUp(self):
+        super(EndpointTests, self).setUp()
+        self.service_layer = services.ServiceLayer()
+
     @tornado.testing.gen_test
     def test_that_endpoint_responds_with_405_by_default(self):
-        service_layer = services.ServiceLayer()
-        service_layer.add_endpoint('service', 'resource')
+        service = self.service_layer['service']
+        service.add_endpoint('resource')
         client = httpclient.AsyncHTTPClient()
         try:
-            yield client.fetch(
-                service_layer.get_service_url('service', 'resource'))
+            yield client.fetch(service.url_for('resource'))
         except httpclient.HTTPError as error:
             self.assertEqual(error.code, 405)
 
     @tornado.testing.gen_test
     def test_that_endpoint_responds_with_programmed_response(self):
-        service_layer = services.ServiceLayer()
-        service_layer.add_endpoint('service', 'resource')
-        service_layer.add_response('service',
-                                   services.Request('GET', '/resource'),
-                                   services.Response(222))
+        service = self.service_layer['service']
+        service.add_response(services.Request('GET', '/resource'),
+                             services.Response(222))
 
         client = httpclient.AsyncHTTPClient()
-        response = yield client.fetch(
-            service_layer.get_service_url('service', 'resource'))
+        response = yield client.fetch(service.url_for('resource'))
         self.assertEqual(response.code, 222)

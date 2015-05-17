@@ -38,57 +38,28 @@ class ServiceLayer(object):
         self._server = httpserver.HTTPServer(self._application)
         self._services = {}
 
-    def add_endpoint(self, service, *resource):
+    def get_service(self, service):
         """
-        Register an endpoint that a service provides.
+        Retrieve a named service, creating it if necessary.
 
-        :param str service: name that you refer to this service by
-        :param resource: path to install into this service
+        :param str service: name to assign to the service
+        :return: a :class:`Service` instance
 
-        Elements of the resource path will be quoted as required by
-        :rfc:`7230` before they are joined by a slash.
+        This method creates the new :class:`Service` instance and
+        wires it into the tornado stack listening on its own port
+        number.  If the service already exists, then it is returned
+        without modification.
 
         """
         try:
             service_instance = self._services[service]
         except KeyError:
-            service_instance = _Service()
+            service_instance = Service(service, self._application.add_resource)
             self._server.add_socket(service_instance.acceptor)
             self._services[service] = service_instance
-        self._application.add_endpoint(service_instance, *resource)
+        return service_instance
 
-    def get_service_url(self, service, *path, **query):
-        """
-        Get a URL to a resource within a service.
-
-        :param str service: name that you assigned to the service
-        :param path: optional path to the request
-        :param query: optional query parameters to attach to the URL
-        :return: the absolute URL that identifies the specified request
-
-        Elements of the resource path will be quoted as required by
-        :rfc:`7230` before they are joined by a slash.  The same is
-        true for the `query` parameters.
-
-        """
-        service_instance = self._services[service]
-        return httpcompat.urlunsplit((
-            'http', service_instance.host,
-            '/'.join(httpcompat.quote(segment) for segment in path),
-            httpcompat.urlencode(sorted(query.items())),
-            None,
-        ))
-
-    def add_response(self, service, request, response):
-        """
-        Register a response for a service.
-
-        :param str service: name that you assigned to the service
-        :param .Request request: request that will trigger the response
-        :param .Response response: value to be returned from the service
-
-        """
-        self._services[service].add_response(request, response)
+    __getitem__ = get_service
 
 
 class Request(object):
@@ -130,9 +101,8 @@ class Response(object):
         self.headers = (headers or {}).copy()
 
 
-class _Service(object):
+class Service(object):
     """
-    A singular dependent HTTP service.
 
     A service is a collection of related endpoints that is
     attached to a specific port on localhost.  It is
@@ -141,8 +111,11 @@ class _Service(object):
 
     """
 
-    def __init__(self):
-        super(_Service, self).__init__()
+    def __init__(self, name, add_resource_callback):
+        super(Service, self).__init__()
+        self.name = name
+        self.add_resource_callback = add_resource_callback
+
         self.acceptor = socket.socket(socket.AF_INET, socket.SOCK_STREAM,
                                       socket.IPPROTO_TCP)
         self.acceptor.setblocking(0)
@@ -150,6 +123,15 @@ class _Service(object):
         self.acceptor.listen(10)
         self.host = '%s:%d' % self.acceptor.getsockname()
         self._responses = collections.defaultdict(list)
+        self._endpoints = set()
+
+    def add_endpoint(self, *path):
+        url = '/'.join(httpcompat.quote(segment) for segment in path)
+        if not url.startswith('/'):
+            url = '/' + url
+        if url not in self._endpoints:
+            self.add_resource_callback(self, url)
+            self._endpoints.add(url)
 
     def add_response(self, request, response):
         """
@@ -159,7 +141,14 @@ class _Service(object):
         :param .Response response:
 
         """
+        self.add_endpoint(request.resource)
         self._responses[request.method, request.resource].append(response)
+
+    def url_for(self, *path, **query):
+        resource = '/'.join(httpcompat.quote(segment) for segment in path)
+        query_str = httpcompat.urlencode(sorted(query.items()))
+        return httpcompat.urlunsplit(('http', self.host, resource,
+                                      query_str, None))
 
     def get_next_response(self, tornado_request):
         """
@@ -181,12 +170,8 @@ class _Application(web.Application):
 
     """
 
-    def add_endpoint(self, service, *path):
-        endpoint = '/'.join(httpcompat.quote(segment)
-                            for segment in path)
-        if not endpoint.startswith('/'):
-            endpoint = '/{0}'.format(endpoint)
-        handler = web.url(endpoint, _ServiceHandler,
+    def add_resource(self, service, resource):
+        handler = web.url(resource, _ServiceHandler,
                           kwargs={'service': service})
         if self.handlers:
             self.handlers[-1][1].append(handler)
@@ -200,7 +185,7 @@ class _ServiceHandler(web.RequestHandler):
 
     Each endpoint is handled by an instance of this class.  It
     does little more than proxy requests between the ioloop and
-    the :class:`_Service` instances.
+    the :class:`Service` instances.
 
     """
 
