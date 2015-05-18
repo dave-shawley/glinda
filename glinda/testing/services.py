@@ -15,7 +15,7 @@ Classes for testing applications that make asynchronous HTTP requests.
 import collections
 import socket
 
-from tornado import gen, httpserver, web
+from tornado import gen, httpserver, httputil, web
 
 from glinda import httpcompat
 
@@ -122,9 +122,10 @@ class Request(object):
     def __init__(self, method, *path):
         super(Request, self).__init__()
         self.method = method
-        self.resource = '/'.join(httpcompat.quote(segment) for segment in path)
-        if not self.resource.startswith('/'):
-            self.resource = '/' + self.resource
+        self.resource = _quote_path(*path)
+        self.body = None
+        self.headers = httputil.HTTPHeaders()
+        self.query = {}
 
 
 class Response(object):
@@ -194,6 +195,7 @@ class Service(object):
         self.acceptor.bind(('127.0.0.1', 0))
         self.acceptor.listen(10)
         self.host = '%s:%d' % self.acceptor.getsockname()
+        self._requests = collections.defaultdict(list)
         self._responses = collections.defaultdict(list)
         self._endpoints = set()
 
@@ -208,9 +210,7 @@ class Service(object):
         :meth:`.add_response` which will create the resource if necessary.
 
         """
-        url = '/'.join(httpcompat.quote(segment) for segment in path)
-        if not url.startswith('/'):
-            url = '/' + url
+        url = _quote_path(*path)
         if url not in self._endpoints:
             self.add_resource_callback(self, url)
             self._endpoints.add(url)
@@ -227,6 +227,23 @@ class Service(object):
         self.add_endpoint(request.resource)
         self._responses[request.method, request.resource].append(response)
 
+    def record_request(self, request):
+        """
+        Record a client request to a service.
+
+        :param tornado.httputil.HTTPRequest request:
+            client request made to one of the services endpoints
+
+        """
+        req = Request(request.method, request.path)
+        req.body = request.body
+        req.headers.update(request.headers)
+        for name, value_list in request.query_arguments.items():
+            assert len(value_list) < 2
+            req.query[name] = value_list[0].decode('utf-8')
+
+        self._requests[request.path].append(req)
+
     def url_for(self, *path, **query):
         """
         Retrieve a URL that targets the service.
@@ -237,7 +254,7 @@ class Service(object):
             this service and includes the specified `path` and `query`
 
         """
-        resource = '/'.join(httpcompat.quote(segment) for segment in path)
+        resource = _quote_path(*path)
         query_str = httpcompat.urlencode(sorted(query.items()))
         return httpcompat.urlunsplit(('http', self.host, resource,
                                       query_str, None))
@@ -246,7 +263,7 @@ class Service(object):
         """
         Retrieve the next response for a request.
 
-        :param tornado.web.httpserver.HTTPRequest:
+        :param tornado.httputil.HTTPRequest tornado_request:
 
         Responses are matched to the request using the request
         method and URI as a key.  If a response was registered
@@ -259,13 +276,59 @@ class Service(object):
             response configured for `tornado_request`
 
         """
-        key = tornado_request.method, tornado_request.uri
+        key = tornado_request.method, tornado_request.path
         try:
             return self._responses[key].pop(0)
         except IndexError:
             raise web.HTTPError(456, 'Unexpected request - %s %s',
                                 tornado_request.method, tornado_request.uri,
                                 reason='Test Configuration Error')
+
+    def get_requests_for(self, *path):
+        """
+        Retrieve the requests made for `path`.
+
+        :param path: resource to retrieve requests for
+
+        This method returns the requests made for `path` in the order
+        that they were made.  It uses a generator to return value
+        values so either call it in a loop or use :func:`next` to get
+        the first value.
+
+        :returns: :class:`.Request` instances made for the resource
+            by way of a generator
+        :raises: :class:`AssertionError` if no requests were made for
+            the resource
+
+        """
+        resource = _quote_path(*path)
+        if self._requests[resource]:
+            for request in self._requests[resource]:
+                yield request
+        else:
+            raise AssertionError('Expected request for {}'.format(resource))
+
+    def get_request(self, *path):
+        """Convenience method to fetch a single request."""
+        return next(self.get_requests_for(*path))
+
+    def assert_request(self, method, *path, **query):
+        """
+        Assert that a specific request was made to the service.
+
+        :param str method: the HTTP method to match
+        :param path: the resource to match
+        :param query: optional query parameters to match
+        :raises: :class:`AssertionError` if no matching request to
+            the service is found
+
+        """
+        resource = _quote_path(*path)
+        for request in self.get_requests_for(resource):
+            if request.method == method and request.query == query:
+                return
+        else:
+            raise AssertionError('Expected request for {}'.format(resource))
 
 
 class _Application(web.Application):
@@ -313,6 +376,10 @@ class _ServiceHandler(web.RequestHandler):
         self.service = kwargs.pop('service')
         super(_ServiceHandler, self).__init__(*args, **kwargs)
 
+    def prepare(self):
+        super(_ServiceHandler, self).prepare()
+        self.service.record_request(self.request)
+
     @gen.coroutine
     def _do_request(self, *args, **kwargs):
         response = self.service.get_next_response(self.request)
@@ -326,3 +393,8 @@ class _ServiceHandler(web.RequestHandler):
     post = _do_request
     put = _do_request
     trace = _do_request
+
+
+def _quote_path(*path):
+    path_str = '/'.join(httpcompat.quote(segment) for segment in path)
+    return path_str if path_str.startswith('/') else '/' + path_str

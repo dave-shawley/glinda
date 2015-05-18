@@ -34,7 +34,8 @@ class MyHandler(web.RequestHandler):
             raise web.HTTPError(504)
 
         response = yield client.fetch('http://{0}/do-stuff'.format(netloc),
-                                      method='POST', raise_error=False)
+                                      method='POST', raise_error=False,
+                                      body='important stuff')
         if response.code >= 300:
             raise web.HTTPError(500)
 
@@ -71,3 +72,21 @@ class HandlerTests(tornado.testing.AsyncHTTPTestCase):
             self.fetch('/do-the-things')
         except web.HTTPError as error:
             self.assertEqual(error.status_code, 500)
+
+    def test_that_status_is_fetched(self):
+        self.external_service.add_response(
+            services.Request('HEAD', '/status'), services.Response(200))
+        self.external_service.add_response(
+            services.Request('POST', '/do-stuff'), services.Response(200))
+        self.fetch('/do-the-things')
+        self.external_service.assert_request('HEAD', '/status')
+
+    def test_that_stuff_is_posted(self):
+        self.external_service.add_response(
+            services.Request('HEAD', '/status'), services.Response(200))
+        self.external_service.add_response(
+            services.Request('POST', '/do-stuff'), services.Response(200))
+        self.fetch('/do-the-things')
+
+        request = self.external_service.get_request('do-stuff')
+        self.assertEqual(request.body, b'important stuff')
