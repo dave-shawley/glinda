@@ -32,25 +32,22 @@ example.
    class MyServiceTests(testing.AsyncHTTPTestCase):
 
       def setUp(self):
-         self.service_layer = services.ServiceLayer()
-         self.service_layer.add_endpoint('adder', '/add')
+         service_layer = services.ServiceLayer()
+         self.service = service_layer['adder']
          # TODO configured your application here using
-         # self.service_layer.get_url_for('adder', '/add')
+         # self.service.url_for('/add') or self.service.host
          super(MyServiceTests, self).setUp()
 
       def get_app(self):
          return MyApplication()
 
-      @testing.gen_test
       def test_that_my_service_calls_other_service(self):
-         self.service_layer.add_response(
-            'adder',
+         self.service.add_response(
             services.Request('POST', '/add'),
             services.Response(200, body='{"result": 10}'))
-         yield self.http_client.fetch(self.get_url('/do-stuff'), method='GET')
+         self.fetch(self.get_url('/do-stuff'), method='GET')
 
-         recorded = self.service_layer.get_request(
-            'adder', services.Request('POST', '/add'))
+         recorded = self.service.get_request(services.Request('POST', '/add'))
          self.assertEqual(recorded.body, '[1,2,3,4]')
          self.assertEqual(recorded.headers['Content-Type'], 'application/json')
 
@@ -59,12 +56,12 @@ The application under test is linked in by implementing the standard
 a ``glinda.testing.services.ServiceLayer`` object and configure it to look
 like the services that you depend on by adding endpoints and then configuring
 your application to point at the service layer.  When you invoke the
-application under test using ``yield self.http_client.fetch(...)``, it will
-send HTTP requests through the Tornado stack (using the testing ``ioloop``)
-to the service layer which will respond appropriately.  The beauty is that
-the entire HTTP stack is exercised locally so that you can easily test edge
-cases such as correct handling of status codes, custom headers, or malformed
-bodies without resorting to deep mocking.
+application under test using ``self.fetch(...)``, it will send HTTP requests
+through the Tornado stack (using the testing ``ioloop``) to the service layer
+which will respond appropriately.  The beauty is that the entire HTTP stack is
+exercised locally so that you can easily test edge cases such as correct
+handling of status codes, custom headers, or malformed bodies without
+resorting to deep mocking.
 
 That is a sample of what this library aims to provide.  It starts with being
 able to develop Tornado applications and test them quickly, easily, and as
