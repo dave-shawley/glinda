@@ -69,13 +69,18 @@ class ServiceLayer(object):
 
     """
 
-    def __init__(self):
+    def __init__(self, io_loop=None):
         """
         Initialize the service layer.
+
+        :param tornado.ioloop.IOLoop io_loop: optional IOLoop instance
+            to attach to.  If unspecified, the default loop is used.
+
         """
         super(ServiceLayer, self).__init__()
         self._application = _Application()
-        self._server = httpserver.HTTPServer(self._application)
+        self._server = httpserver.HTTPServer(self._application,
+                                             io_loop=io_loop)
         self._services = {}
 
     def get_service(self, service):
