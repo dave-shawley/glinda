@@ -10,3 +10,5 @@ try:
 except ImportError:  # pragma: no cover
     from urllib import quote, urlencode
     from urlparse import urlsplit, urlunsplit
+
+__all__ = ('quote', 'urlencode', 'urlsplit', 'urlunsplit')
