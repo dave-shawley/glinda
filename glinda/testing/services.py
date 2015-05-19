@@ -344,6 +344,10 @@ class _Application(web.Application):
 
     """
 
+    def __init__(self):
+        # overridden to install a default handler
+        super(_Application, self).__init__([web.url('/', web.ErrorHandler)])
+
     def add_resource(self, service, resource):
         """
         Install a :class:`_ServiceHandler` instance.
@@ -356,10 +360,7 @@ class _Application(web.Application):
         """
         handler = web.url(resource, _ServiceHandler,
                           kwargs={'service': service})
-        if self.handlers:
-            self.handlers[-1][1].append(handler)
-        else:
-            self.add_handlers('.*', [handler])
+        self.handlers[-1][1].append(handler)
 
 
 class _ServiceHandler(web.RequestHandler):
