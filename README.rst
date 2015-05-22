@@ -1,10 +1,8 @@
 glinda
 ======
 
-|Version| |Downloads| |Status| |License|
+|ReadTheDocs| |Travis| |CodeClimate|
 
-Wait... Why? What??
--------------------
 Glinda is a companion library for `tornado`_.  It is an attempt to make your
 time with the framework less painful.  In fact, I want to make it downright
 enjoyable.  I started down the path of developing HTTP endpoints in Tornado
@@ -67,9 +65,8 @@ That is a sample of what this library aims to provide.  It starts with being
 able to develop Tornado applications and test them quickly, easily, and as
 completely as possible.  Let's do some of that, shall we?
 
-Ok... Where?
-------------
-
+Where?
+------
 +---------------+-------------------------------------------------+
 | Source        | https://github.com/dave-shawley/glinda          |
 +---------------+-------------------------------------------------+
@@ -85,11 +82,9 @@ Ok... Where?
 .. _tornado: http://tornadoweb.org/
 .. _tornado.testing: http://www.tornadoweb.org/en/latest/testing.html
 
-.. |Version| image:: https://pypip.in/version/glinda/badge.svg
-   :target: https://pypi.python.org/pypi/glinda
-.. |Downloads| image:: https://pypip.in/d/glinda/badge.svg
-   :target: https://pypi.python.org/pypi/glinda
-.. |Status| image:: https://travis-ci.org/dave-shawley/glinda.svg
+.. |ReadTheDocs| image:: https://readthedocs.org/projects/glinda/badge/
+   :target: https://glinda.readthedocs.org/
+.. |Travis| image:: https://travis-ci.org/dave-shawley/glinda.svg
    :target: https://travis-ci.org/dave-shawley/glinda
-.. |License| image:: https://pypip.in/license/glinda/badge.svg
-   :target: https://github.com/dave-shawley/glinda/blob/master/LICENSE
+.. |CodeClimate| image:: https://codeclimate.com/github/dave-shawley/glinda/badges/gpa.svg
+   :target: https://codeclimate.com/github/dave-shawley/glinda
