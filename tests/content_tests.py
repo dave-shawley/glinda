@@ -1,6 +1,7 @@
 import json
 
 from tornado import testing, web
+import msgpack
 
 from glinda import content
 
@@ -57,3 +58,43 @@ class JsonContentTests(testing.AsyncHTTPTestCase):
                               headers={'Content-Type': 'application/xml'},
                               body=b'<?xml version="1.0"?><body/>')
         self.assertEqual(response.code, 415)
+
+
+class ContentSelectionTests(testing.AsyncHTTPTestCase):
+
+    def get_app(self):
+        return web.Application([web.url('/', SimpleHandler)])
+
+    def setUp(self):
+        super(ContentSelectionTests, self).setUp()
+        content.register_text_type('application/json', 'latin1',
+                                   json.dumps, json.loads)
+        content.register_binary_type('application/msgpack', msgpack.packb,
+                                     msgpack.unpackb)
+
+    def tearDown(self):
+        super(ContentSelectionTests, self).tearDown()
+        content.clear_handlers()
+
+    def test_that_simple_accept_header_is_honored(self):
+        response = self.fetch('/', headers={'Accept': 'application/json'})
+        self.assertEqual(response.headers['Content-Type'],
+                         'application/json; charset=latin1')
+        body = json.loads(response.body.decode('latin1'))
+        self.assertEqual(body['Accept'], 'application/json')
+
+        response = self.fetch('/', headers={'Accept': 'application/msgpack'})
+        self.assertEqual(response.headers['Content-Type'],
+                         'application/msgpack')
+        body = msgpack.unpackb(response.body)
+        self.assertEqual(body[b'Accept'], b'application/msgpack')
+
+    def test_that_header_driven_translation_works(self):
+        body = {'some': 'simple', 'and complex': ['body', 'elements']}
+        response = self.fetch('/', method='POST', body=msgpack.packb(body),
+                              headers={
+                                  'Content-Type': 'application/msgpack',
+                                  'Accept': 'application/json'})
+        self.assertEqual(response.headers['Content-Type'],
+                         'application/json; charset=latin1')
+        self.assertEqual(json.loads(response.body.decode('latin1')), body)
