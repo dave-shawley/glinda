@@ -13,13 +13,64 @@ that testing that is not as easy as it should be.  That is the first thing
 that I tackled and it is the first thing that this library is going to
 offer -- *a way to test non-trivial services*.
 
-Here's an example.  Assume that you have a Tornado application that interacts
-with the ``/add`` endpoint of some other service.  Testing in isolation can
-be tricky without having to have a copy of the service running.  The other
-option is to deeply mock things which has a nasty side-effect of hiding
-defects around how content type or headers are handled -- no HTTP requests
-means that you have untested assumptions.  Instead, consider the following
-example.
+Once you can test your application, the next step is to write a well-behaved
+application that fits into the WWW nicely.  Tornado does a pretty nice job
+of handling the nitty gritty HTTP details (e.g., CTE, transfer encodings).
+It doesn't provide a clean way to handle representations transparently so
+I decided to add that into this library as well.
+
+Content Handling
+----------------
+Tornado has some internal content decoding accessible by calling the
+``get_body_arguments`` method of ``tornado.web.RequestHandler``.  It will
+decode basic form data, ``application/x-www-form-urlencoded`` and
+``multipart/form-data`` specifically.  Anything else is left up to you.
+``glinda`` exposes a content handling mix-in that imbues a standard
+``RequestHandler`` with a property that is the decoded request body and
+a new method to encode a response.  Here's what it looks like:
+
+.. code-block:: python
+
+   class MyHandler(glinda.content.HandlerMixin, web.RequestHandler):
+       def post(self, *args, **kwargs):
+           body_argument = self.request_body['arg']
+           # do stuff
+           self.send_response(response_dict)
+           self.finish()
+
+   if __name__ == '__main__':
+       glinda.content.register_text_type('application/json',
+                                         default_charset='utf-8',
+                                         dumper=json.dumps, loader=json.loads)
+       glinda.content.register_binary_type('application/msgpack',
+                                           msgpack.dumpb, msgpack.loadb)
+
+When the client sends a post with a content type of ``application/json``, it
+will decode the binary body to a string according to the HTTP headers and
+call ``json.loads`` to decode the body when you reference the ``request_body``
+property.  Failures are handled by raising a ``HTTPError(400)`` so you don't
+have to worry about handling malformed messages.  The ``send_response``
+method will take care of figuring out the appropriate content type based on
+any included :mailheader:`Accept` headers.  All that you have to do is install
+encoding and decoding handlers for expected content types.
+
+The ``glinda.content`` package implements content handling as described in
+`RFC7231`_.  Specifically, it decodes request bodies as described in
+`section 3.1`_ and proactive content negotiation as described in sections
+`3.4.1`_ and `5.3`_.
+
+Testing
+-------
+Here's an example of testing a Tornado endpoint that asynchronously calls
+another service.  In this case, the application interacts with  with the
+``/add`` endpoint of some other service.  Testing in isolation can be tricky
+without having to have a copy of the service running.  You could mock out
+the ``AsyncHTTPClient`` and return fake futures and what not but that has
+the nasty side-effect of hiding defects around how content type or headers
+are handled -- no HTTP requests means that you have untested assumptions.
+
+The following snippet tests the application under test using the
+``ServiceLayer`` abstraction that ``glinda.testing`` provides.
 
 .. code-block:: python
 
@@ -45,7 +96,8 @@ example.
             services.Response(200, body='{"result": 10}'))
          self.fetch(self.get_url('/do-stuff'), method='GET')
 
-         recorded = self.service.get_request(services.Request('POST', '/add'))
+         recorded = self.service.get_request('/add')
+         self.assertEqual(recorded.method, 'POST')
          self.assertEqual(recorded.body, '[1,2,3,4]')
          self.assertEqual(recorded.headers['Content-Type'], 'application/json')
 
@@ -60,10 +112,6 @@ which will respond appropriately.  The beauty is that the entire HTTP stack is
 exercised locally so that you can easily test edge cases such as correct
 handling of status codes, custom headers, or malformed bodies without
 resorting to deep mocking.
-
-That is a sample of what this library aims to provide.  It starts with being
-able to develop Tornado applications and test them quickly, easily, and as
-completely as possible.  Let's do some of that, shall we?
 
 Where?
 ------
@@ -81,6 +129,10 @@ Where?
 
 .. _tornado: http://tornadoweb.org/
 .. _tornado.testing: http://www.tornadoweb.org/en/latest/testing.html
+.. _RFC7231: http://tools.ietf.org/html/rfc7231
+.. _section 3.1: http://tools.ietf.org/html/rfc7231#section-3.1
+.. _3.4.1: http://tools.ietf.org/html/rfc7231#section-3.4.1
+.. _5.3: http://tools.ietf.org/html/rfc7231#section-5.3
 
 .. |ReadTheDocs| image:: https://readthedocs.org/projects/glinda/badge/
    :target: https://glinda.readthedocs.org/
