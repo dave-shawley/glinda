@@ -1,6 +1,6 @@
 import logging
 
-from ietfparse import algorithms, headers, errors
+from ietfparse import algorithms, datastructures, errors, headers
 from tornado import web, escape
 
 
@@ -32,6 +32,7 @@ class _ContentHandler(object):
 
     def unpack_bytes(self, obj_bytes, encoding=None):
         """Unpack a byte stream into a dictionary."""
+        assert self.bytes_to_dict or self.string_to_dict
         encoding = encoding or self.default_encoding
         LOGGER.debug('%r decoding %d bytes with encoding of %s',
                      self, len(obj_bytes), encoding)
@@ -41,7 +42,8 @@ class _ContentHandler(object):
 
     def pack_bytes(self, obj_dict, encoding=None):
         """Pack a dictionary into a byte stream."""
-        encoding = encoding or self.default_encoding
+        assert self.dict_to_bytes or self.dict_to_string
+        encoding = encoding or self.default_encoding or 'utf-8'
         LOGGER.debug('%r encoding dict with encoding %s', self, encoding)
         if self.dict_to_bytes:
             return None, self.dict_to_bytes(obj_dict)
@@ -82,8 +84,8 @@ def register_text_type(content_type, default_encoding, dumper, loader):
     _content_types[key] = content_type
 
     handler = _content_handlers.setdefault(key, _ContentHandler(key))
-    handler.dict_to_string = dumper or handler.dict_to_string
-    handler.string_to_dict = loader or handler.string_to_dict
+    handler.dict_to_string = dumper
+    handler.string_to_dict = loader
     handler.default_encoding = default_encoding or handler.default_encoding
 
 
@@ -103,8 +105,8 @@ def register_binary_type(content_type, dumper, loader):
     _content_types[key] = content_type
 
     handler = _content_handlers.setdefault(key, _ContentHandler(key))
-    handler.dict_to_bytes = dumper or handler.dict_to_bytes
-    handler.bytes_to_dict = loader or handler.bytes_to_dict
+    handler.dict_to_bytes = dumper
+    handler.bytes_to_dict = loader
 
 
 def clear_handlers():
@@ -130,7 +132,6 @@ class HandlerMixin(object):
                 'Content-Type', 'application/octet-stream')
             LOGGER.debug('decoding request body of type %s', content_type_str)
             content_type = headers.parse_content_type(content_type_str)
-            content_type.quality = 1  # TODO FIXME
             try:
                 selected, requested = algorithms.select_content_type(
                     [content_type], _content_types.values())
@@ -151,21 +152,35 @@ class HandlerMixin(object):
         """
         Encode a response according to the request.
 
-        :param dict response_dict:
+        :param dict response_dict: the response to send
+
+        This method will encode `response_dict` using the most appropriate
+        encoder based on the :mailheader:`Accept` request header and the
+        available encoders.  The result is written to the client by calling
+        ``self.write`` after setting the response content type using
+        ``self.set_header``.
 
         """
         accept = headers.parse_http_accept_header(
             self.request.headers.get('Accept', '*/*'))
         selected, _ = algorithms.select_content_type(
             accept, _content_types.values())
+        LOGGER.debug('selected %s as outgoing content type', selected)
         handler = _content_handlers[str(selected)]
 
-        LOGGER.debug('encoding response body using %r', handler)
-        encoding, response_bytes = handler.pack_bytes(response_dict)
+        accept = self.request.headers.get('Accept-Charset', '*')
+        charsets = headers.parse_accept_charset(accept)
+        charset = charsets[0] if charsets[0] != '*' else None
+        LOGGER.debug('encoding response body using %r with encoding %s',
+                     handler, charset)
+        encoding, response_bytes = handler.pack_bytes(response_dict,
+                                                      encoding=charset)
 
-        copied = selected
-        copied.parameters = selected.parameters.copy()
-        if encoding:
+        if encoding:  # don't overwrite the value in _content_types
+            copied = datastructures.ContentType(selected.content_type,
+                                                selected.content_subtype,
+                                                selected.parameters)
             copied.parameters['charset'] = encoding
-        self.set_header('Content-Type', str(copied))
+            selected = copied
+        self.set_header('Content-Type', str(selected))
         self.write(response_bytes)

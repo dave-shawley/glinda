@@ -1,9 +1,27 @@
 import json
 
-from tornado import testing, web
+from tornado import httpclient, testing, web
 import msgpack
 
 from glinda import content
+
+
+KOREAN_TEXT = (u'\uc138\uacc4\ub97c \ud5a5\ud55c \ub300\ud654, '
+               u'\uc720\ub2c8\ucf54\ub4dc\ub85c \ud558\uc2ed\uc2dc\uc624. '
+               u'\uc81c10\ud68c \uc720\ub2c8\ucf54\ub4dc \uad6d\uc81c '
+               u'\ud68c\uc758\uac00 1997\ub144 3\uc6d4 10\uc77c\ubd80\ud130 '
+               u'12\uc77c\uae4c\uc9c0 \ub3c5\uc77c\uc758 \ub9c8\uc778\uc988'
+               u'\uc5d0\uc11c \uc5f4\ub9bd\ub2c8\ub2e4. \uc9c0\uae08 \ub4f1'
+               u'\ub85d\ud558\uc2ed\uc2dc\uc624. \uc774 \ud68c\uc758\uc5d0'
+               u'\uc11c\ub294 \uc5c5\uacc4 \uc804\ubc18\uc758 \uc804\ubb38'
+               u'\uac00\ub4e4\uc774 \ud568\uaed8 \ubaa8\uc5ec \ub2e4\uc74c'
+               u'\uacfc \uac19\uc740 \ubd84\uc57c\ub97c \ub2e4\ub8f9\ub2c8'
+               u'\ub2e4. - \uc778\ud130\ub137\uacfc \uc720\ub2c8\ucf54\ub4dc, '
+               u'\uad6d\uc81c\ud654\uc640 \uc9c0\uc5ed\ud654, \uc6b4\uc601 '
+               u'\uccb4\uc81c\uc640 \uc751\uc6a9 \ud504\ub85c\uadf8\ub7a8'
+               u'\uc5d0\uc11c \uc720\ub2c8\ucf54\ub4dc\uc758 \uad6c\ud604, '
+               u'\uae00\uaf34, \ubb38\uc790 \ubc30\uc5f4, \ub2e4\uad6d\uc5b4 '
+               u'\ucef4\ud4e8\ud305.')
 
 
 class SimpleHandler(content.HandlerMixin, web.RequestHandler):
@@ -98,3 +116,31 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
         self.assertEqual(response.headers['Content-Type'],
                          'application/json; charset=latin1')
         self.assertEqual(json.loads(response.body.decode('latin1')), body)
+
+
+class TextEncodingTests(testing.AsyncHTTPTestCase):
+
+    def get_app(self):
+        return web.Application([web.url('/', SimpleHandler)])
+
+    def setUp(self):
+        super(TextEncodingTests, self).setUp()
+        content.register_text_type('application/json', 'utf-8',
+                                   json.dumps, json.loads)
+
+    def tearDown(self):
+        super(TextEncodingTests, self).tearDown()
+        content.clear_handlers()
+
+    def test_that_accept_charset_is_honored(self):
+        str_body = json.dumps({'text': KOREAN_TEXT})
+        encoded_body = str_body.encode('utf-8')
+        response = self.fetch('/', body=encoded_body, method='POST', headers={
+            'Content-Type': 'application/json; charset=utf-8',
+            'Accept': 'application/json',
+            'Accept-Charset': 'euc_kr',
+        })
+        self.assertEqual(response.headers['Content-Type'],
+                         'application/json; charset=euc_kr')
+        self.assertEqual(json.loads(response.body.decode('euc_kr')),
+                         {'text': KOREAN_TEXT})
