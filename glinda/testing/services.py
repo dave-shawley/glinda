@@ -306,7 +306,7 @@ class Service(object):
             for request in self._requests[resource]:
                 yield request
         else:
-            raise AssertionError('Expected request for {}'.format(resource))
+            raise AssertionError('Expected request for {0}'.format(resource))
 
     def get_request(self, *path):
         """Convenience method to fetch a single request."""
@@ -328,7 +328,7 @@ class Service(object):
             if request.method == method and request.query == query:
                 return
         else:
-            raise AssertionError('Expected request for {}'.format(resource))
+            raise AssertionError('Expected request for {0}'.format(resource))
 
 
 class _Application(web.Application):
@@ -385,6 +385,11 @@ class _ServiceHandler(web.RequestHandler):
     def _do_request(self, *args, **kwargs):
         response = self.service.get_next_response(self.request)
         self.set_status(response.status, response.reason)
+        for name, value in response.headers.items():
+            self.set_header(name, value)
+        if response.body:
+            self.write(response.body)
+        self.finish()
 
     connect = _do_request
     delete = _do_request

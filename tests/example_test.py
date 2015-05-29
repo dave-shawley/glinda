@@ -28,18 +28,24 @@ class MyHandler(web.RequestHandler):
     def get(self):
         netloc = os.environ['SERVICE_NETLOC']
         client = httpclient.AsyncHTTPClient()
-        response = yield client.fetch('http://{0}/status'.format(netloc),
-                                      method='HEAD', raise_error=False)
-        if response.code >= 300:
-            raise web.HTTPError(504)
+        try:
+            yield client.fetch('http://{0}/status'.format(netloc),
+                               method='HEAD')
+        except web.HTTPError as error:
+            if error.code >= 300:
+                raise web.HTTPError(504)
 
-        response = yield client.fetch('http://{0}/do-stuff'.format(netloc),
-                                      method='POST', raise_error=False,
-                                      body='important stuff')
-        if response.code >= 300:
-            raise web.HTTPError(500)
+        try:
+            response = yield client.fetch('http://{0}/do-stuff'.format(netloc),
+                                          method='POST',
+                                          body='important stuff')
+        except web.HTTPError as error:
+            if error.code >= 300:
+                raise web.HTTPError(500)
 
         self.set_status(200)
+        self.set_header('Custom', response.headers.get('Custom', ''))
+        self.write(response.body)
         self.finish()
 
 
@@ -90,3 +96,14 @@ class HandlerTests(tornado.testing.AsyncHTTPTestCase):
 
         request = self.external_service.get_request('do-stuff')
         self.assertEqual(request.body, b'important stuff')
+
+    def test_that_post_response_is_preserved(self):
+        self.external_service.add_response(
+            services.Request('HEAD', '/status'), services.Response(200))
+        self.external_service.add_response(
+            services.Request('POST', '/do-stuff'),
+            services.Response(200, body='foo', headers={'Custom': 'header'}))
+
+        response = self.fetch('/do-the-things')
+        self.assertEqual(response.body.decode(), 'foo')
+        self.assertEqual(response.headers['Custom'], 'header')
