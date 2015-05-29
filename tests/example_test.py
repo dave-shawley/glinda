@@ -28,16 +28,20 @@ class MyHandler(web.RequestHandler):
     def get(self):
         netloc = os.environ['SERVICE_NETLOC']
         client = httpclient.AsyncHTTPClient()
-        response = yield client.fetch('http://{0}/status'.format(netloc),
-                                      method='HEAD', raise_error=False)
-        if response.code >= 300:
-            raise web.HTTPError(504)
+        try:
+            yield client.fetch('http://{0}/status'.format(netloc),
+                               method='HEAD')
+        except web.HTTPError as error:
+            if error.code >= 300:
+                raise web.HTTPError(504)
 
-        response = yield client.fetch('http://{0}/do-stuff'.format(netloc),
-                                      method='POST', raise_error=False,
-                                      body='important stuff')
-        if response.code >= 300:
-            raise web.HTTPError(500)
+        try:
+            response = yield client.fetch('http://{0}/do-stuff'.format(netloc),
+                                          method='POST',
+                                          body='important stuff')
+        except web.HTTPError as error:
+            if error.code >= 300:
+                raise web.HTTPError(500)
 
         self.set_status(200)
         self.set_header('Custom', response.headers.get('Custom', ''))
