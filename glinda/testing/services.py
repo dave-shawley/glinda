@@ -385,6 +385,11 @@ class _ServiceHandler(web.RequestHandler):
     def _do_request(self, *args, **kwargs):
         response = self.service.get_next_response(self.request)
         self.set_status(response.status, response.reason)
+        for name, value in response.headers.items():
+            self.set_header(name, value)
+        if response.body:
+            self.write(response.body)
+        self.finish()
 
     connect = _do_request
     delete = _do_request

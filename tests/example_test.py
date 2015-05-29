@@ -40,6 +40,8 @@ class MyHandler(web.RequestHandler):
             raise web.HTTPError(500)
 
         self.set_status(200)
+        self.set_header('Custom', response.headers.get('Custom', ''))
+        self.write(response.body)
         self.finish()
 
 
@@ -90,3 +92,14 @@ class HandlerTests(tornado.testing.AsyncHTTPTestCase):
 
         request = self.external_service.get_request('do-stuff')
         self.assertEqual(request.body, b'important stuff')
+
+    def test_that_post_response_is_preserved(self):
+        self.external_service.add_response(
+            services.Request('HEAD', '/status'), services.Response(200))
+        self.external_service.add_response(
+            services.Request('POST', '/do-stuff'),
+            services.Response(200, body='foo', headers={'Custom': 'header'}))
+
+        response = self.fetch('/do-the-things')
+        self.assertEqual(response.body, 'foo')
+        self.assertEqual(response.headers['Custom'], 'header')
