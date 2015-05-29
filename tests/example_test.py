@@ -101,5 +101,5 @@ class HandlerTests(tornado.testing.AsyncHTTPTestCase):
             services.Response(200, body='foo', headers={'Custom': 'header'}))
 
         response = self.fetch('/do-the-things')
-        self.assertEqual(response.body, 'foo')
+        self.assertEqual(response.body.decode(), 'foo')
         self.assertEqual(response.headers['Custom'], 'header')
