@@ -1,7 +1,7 @@
 Changelog
 ---------
 
-* `Next Release`_
+* `0.0.3`_ (30 May 2015)
 
   - Add :func:`glinda.content.clear_handlers`
   - Add :func:`glinda.content.register_binary_type`
@@ -20,6 +20,7 @@ Changelog
   - Add :class:`glinda.testing.services.Request`
   - Add :class:`glinda.testing.services.Response`
 
-.. _Next Release: https://github.com/dave-shawley/glinda/compare/0.0.2...master
+.. _Next Release: https://github.com/dave-shawley/glinda/compare/0.0.3...master
+.. _0.0.3: https://github.com/dave-shawley/glinda/compare/0.0.2...0.0.3
 .. _0.0.2: https://github.com/dave-shawley/glinda/compare/0.0.1...0.0.2
 .. _0.0.1: https://github.com/dave-shawley/glinda/compare/0.0.0...0.0.1
