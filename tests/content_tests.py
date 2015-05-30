@@ -85,7 +85,7 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
 
     def setUp(self):
         super(ContentSelectionTests, self).setUp()
-        content.register_text_type('application/json', 'latin1',
+        content.register_text_type('application/json', 'utf-8',
                                    json.dumps, json.loads)
         content.register_binary_type('application/msgpack', msgpack.packb,
                                      msgpack.unpackb)
@@ -97,8 +97,8 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
     def test_that_simple_accept_header_is_honored(self):
         response = self.fetch('/', headers={'Accept': 'application/json'})
         self.assertEqual(response.headers['Content-Type'],
-                         'application/json; charset=latin1')
-        body = json.loads(response.body.decode('latin1'))
+                         'application/json; charset=utf-8')
+        body = json.loads(response.body.decode('utf-8'))
         self.assertEqual(body['Accept'], 'application/json')
 
         response = self.fetch('/', headers={'Accept': 'application/msgpack'})
@@ -114,12 +114,28 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
                                   'Content-Type': 'application/msgpack',
                                   'Accept': 'application/json'})
         self.assertEqual(response.headers['Content-Type'],
-                         'application/json; charset=latin1')
-        self.assertEqual(json.loads(response.body.decode('latin1')), body)
+                         'application/json; charset=utf-8')
+        self.assertEqual(json.loads(response.body.decode('utf-8')), body)
 
     def test_that_no_acceptable_content_type_raises_406(self):
         response = self.fetch('/', headers={'Accept': 'application/xml'})
         self.assertEqual(response.code, 406)
+
+    def test_that_request_body_is_decoded_using_charset_parameter(self):
+        body = u'{"value":"\u00A0\u00FF"}'
+        headers = {
+            'Content-Type': 'application/json; charset=latin1',
+            'Accept': 'application/json',
+            'Accept-Charset': 'utf8',
+        }
+        response = self.fetch('/', method='POST',
+                              body=body.encode('latin1'),
+                              headers=headers)
+        self.assertEqual(response.code, 200)
+        self.assertEqual(response.headers['Content-Type'],
+                         'application/json; charset=utf8')
+        self.assertEqual(json.loads(response.body.decode('utf-8')),
+                         json.loads(body))
 
 
 class TextEncodingTests(testing.AsyncHTTPTestCase):

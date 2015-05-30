@@ -147,7 +147,10 @@ class HandlerMixin(object):
                     reason='Unexpected content type')
             handler = _content_handlers[str(selected)]
             try:
-                self._request_body = handler.unpack_bytes(self.request.body)
+                self._request_body = handler.unpack_bytes(
+                    self.request.body,
+                    encoding=content_type.parameters.get('charset'),
+                )
             except ValueError as error:
                 raise web.HTTPError(
                     400, 'failed to decode content body - %r', error,
