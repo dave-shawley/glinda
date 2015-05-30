@@ -51,7 +51,7 @@ call ``json.loads`` to decode the body when you reference the ``request_body``
 property.  Failures are handled by raising a ``HTTPError(400)`` so you don't
 have to worry about handling malformed messages.  The ``send_response``
 method will take care of figuring out the appropriate content type based on
-any included :mailheader:`Accept` headers.  All that you have to do is install
+any included ``Accept`` headers.  All that you have to do is install
 encoding and decoding handlers for expected content types.
 
 The ``glinda.content`` package implements content handling as described in
