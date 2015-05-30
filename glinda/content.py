@@ -80,6 +80,7 @@ def register_text_type(content_type, default_encoding, dumper, loader):
 
     """
     content_type = headers.parse_content_type(content_type)
+    content_type.parameters.clear()
     key = str(content_type)
     _content_types[key] = content_type
 
@@ -101,6 +102,7 @@ def register_binary_type(content_type, dumper, loader):
 
     """
     content_type = headers.parse_content_type(content_type)
+    content_type.parameters.clear()
     key = str(content_type)
     _content_types[key] = content_type
 
