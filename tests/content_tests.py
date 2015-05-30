@@ -117,6 +117,10 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
                          'application/json; charset=latin1')
         self.assertEqual(json.loads(response.body.decode('latin1')), body)
 
+    def test_that_no_acceptable_content_type_raises_406(self):
+        response = self.fetch('/', headers={'Accept': 'application/xml'})
+        self.assertEqual(response.code, 406)
+
 
 class TextEncodingTests(testing.AsyncHTTPTestCase):
 
