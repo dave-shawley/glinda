@@ -1,1 +1,2 @@
+ietfparse>=1.2.2,<2
 tornado>=3,<5
