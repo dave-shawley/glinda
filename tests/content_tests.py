@@ -31,7 +31,7 @@ class SimpleHandler(content.HandlerMixin, web.RequestHandler):
         self.finish()
 
     def post(self, *args, **kwargs):
-        self.send_response(self.request_body)
+        self.send_response(self.get_request_body())
         self.finish()
 
 

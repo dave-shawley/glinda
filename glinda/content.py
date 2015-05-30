@@ -124,9 +124,15 @@ class HandlerMixin(object):
         super(HandlerMixin, self).__init__(*args, **kwargs)
         self._request_body = None
 
-    @property
-    def request_body(self):
-        """The decoded request body."""
+    def get_request_body(self):
+        """
+        Decodes the request body and returns it.
+
+        :return: the decoded request body as a :class:`dict` instance.
+        :raises: :class:`tornado.web.HTTPError` if the body cannot be
+            decoded (415) or if decoding fails (400)
+
+        """
         if self._request_body is None:
             content_type_str = self.request.headers.get(
                 'Content-Type', 'application/octet-stream')
