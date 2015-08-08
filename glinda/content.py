@@ -47,7 +47,12 @@ class _ContentHandler(object):
         LOGGER.debug('%r encoding dict with encoding %s', self, encoding)
         if self.dict_to_bytes:
             return None, self.dict_to_bytes(obj_dict)
-        return encoding, self.dict_to_string(obj_dict).encode(encoding)
+        try:
+            return encoding, self.dict_to_string(obj_dict).encode(encoding)
+        except LookupError as error:
+            raise web.HTTPError(
+                406, 'failed to encode result %r', error,
+                reason='target charset {0} not found'.format(encoding))
 
     def __repr__(self):
         return '<{}.{} for {} unpacks {}, packs {}>'.format(

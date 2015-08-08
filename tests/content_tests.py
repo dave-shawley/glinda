@@ -1,6 +1,6 @@
 import json
 
-from tornado import httpclient, testing, web
+from tornado import testing, web
 import msgpack
 
 from glinda import content
@@ -164,3 +164,7 @@ class TextEncodingTests(testing.AsyncHTTPTestCase):
                          'application/json; charset=euc_kr')
         self.assertEqual(json.loads(response.body.decode('euc_kr')),
                          {'text': KOREAN_TEXT})
+
+    def test_that_unknown_encoding_raises_406(self):
+        response = self.fetch('/', headers={'Accept-Charset': 'foo'})
+        self.assertEqual(response.code, 406)
