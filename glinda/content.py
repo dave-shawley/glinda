@@ -53,6 +53,10 @@ class _ContentHandler(object):
             raise web.HTTPError(
                 406, 'failed to encode result %r', error,
                 reason='target charset {0} not found'.format(encoding))
+        except UnicodeEncodeError as error:
+            LOGGER.warning('failed to encode text as %s - %s, trying utf-8',
+                           encoding, str(error))
+            return 'utf-8', self.dict_to_string(obj_dict).encode('utf-8')
 
     def __repr__(self):
         return '<{}.{} for {} unpacks {}, packs {}>'.format(

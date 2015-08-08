@@ -3,7 +3,7 @@ import json
 from tornado import testing, web
 import msgpack
 
-from glinda import content
+from glinda import content, httpcompat
 
 
 KOREAN_TEXT = (u'\uc138\uacc4\ub97c \ud5a5\ud55c \ub300\ud654, '
@@ -27,7 +27,9 @@ KOREAN_TEXT = (u'\uc138\uacc4\ub97c \ud5a5\ud55c \ub300\ud654, '
 class SimpleHandler(content.HandlerMixin, web.RequestHandler):
 
     def get(self):
-        self.send_response(self.request.headers)
+        response_dict = self.request.headers.copy()
+        response_dict['query args'] = httpcompat.parse_qs(self.request.query)
+        self.send_response(response_dict)
         self.finish()
 
     def post(self, *args, **kwargs):
@@ -140,13 +142,18 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
 
 class TextEncodingTests(testing.AsyncHTTPTestCase):
 
+    @staticmethod
+    def unicode_dumper(body, **kwargs):
+        kwargs['ensure_ascii'] = False
+        return json.dumps(body, **kwargs)
+
     def get_app(self):
         return web.Application([web.url('/', SimpleHandler)])
 
     def setUp(self):
         super(TextEncodingTests, self).setUp()
         content.register_text_type('application/json', 'utf-8',
-                                   json.dumps, json.loads)
+                                   self.unicode_dumper, json.loads)
 
     def tearDown(self):
         super(TextEncodingTests, self).tearDown()
@@ -168,3 +175,13 @@ class TextEncodingTests(testing.AsyncHTTPTestCase):
     def test_that_unknown_encoding_raises_406(self):
         response = self.fetch('/', headers={'Accept-Charset': 'foo'})
         self.assertEqual(response.code, 406)
+
+    def test_that_encoding_failures_fall_back_to_utf8(self):
+        response = self.fetch('/?utf8=%e2%9c%93', headers={
+            'Accept-Charset': 'latin1',
+        })
+        self.assertEqual(response.code, 200)
+        self.assertEqual(response.headers['Content-Type'],
+                         'application/json; charset=utf-8')
+        decoded = json.loads(response.body.decode('utf-8'))
+        self.assertEqual(decoded['Query args'], {'utf8': [u'\u2713']})
