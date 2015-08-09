@@ -28,7 +28,7 @@ msgpack = maybe_import('msgpack')
 yaml = maybe_import('yaml')
 
 
-class HttpbinHander(content.HandlerMixin, web.RequestHandler):
+class HttpbinHandler(content.HandlerMixin, web.RequestHandler):
     """Mimics http://httpbin.org/{get,post}"""
 
     def get(self):
@@ -98,7 +98,7 @@ if __name__ == '__main__':
                                    dumper=yaml.dump, loader=yaml.load)
 
     app = web.Application([
-        web.url(r'/', HttpbinHander),
+        web.url(r'/', HttpbinHandler),
         web.url(r'/negotiate', RFC2295Handler),
     ], debug=True)
     server = httpserver.HTTPServer(app)

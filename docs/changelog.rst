@@ -5,6 +5,7 @@ Changelog
 
   - Modify content negotiation to 406 when asked for an unknown character set
   - Add :attr:`glinda.content.HandlerMixin.registered_content_types`
+  - Add directory of examples
 
 * `0.0.3`_ (30 May 2015)
 

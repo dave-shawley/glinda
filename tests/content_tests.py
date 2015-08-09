@@ -29,7 +29,7 @@ KOREAN_TEXT = (u'\uc138\uacc4\ub97c \ud5a5\ud55c \ub300\ud654, '
 class JsonContentTests(testing.AsyncHTTPTestCase):
 
     def get_app(self):
-        return web.Application([web.url('/', contentneg.HttpbinHander)])
+        return web.Application([web.url('/', contentneg.HttpbinHandler)])
 
     def setUp(self):
         super(JsonContentTests, self).setUp()
@@ -73,7 +73,7 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
 
     def get_app(self):
         return web.Application([
-            web.url('/', contentneg.HttpbinHander),
+            web.url('/', contentneg.HttpbinHandler),
             web.url('/rfc2295', contentneg.RFC2295Handler),
         ])
 
@@ -158,7 +158,7 @@ class TextEncodingTests(testing.AsyncHTTPTestCase):
         return json.dumps(body, **kwargs)
 
     def get_app(self):
-        return web.Application([web.url('/', contentneg.HttpbinHander)])
+        return web.Application([web.url('/', contentneg.HttpbinHandler)])
 
     def setUp(self):
         super(TextEncodingTests, self).setUp()
