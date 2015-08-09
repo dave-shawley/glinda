@@ -6,9 +6,9 @@ that might conflict.
 
 """
 try:
-    from urllib.parse import quote, urlencode, urlsplit, urlunsplit
+    from urllib.parse import parse_qs, quote, urlencode, urlsplit, urlunsplit
 except ImportError:  # pragma: no cover
     from urllib import quote, urlencode
-    from urlparse import urlsplit, urlunsplit
+    from urlparse import parse_qs, urlsplit, urlunsplit
 
-__all__ = ('quote', 'urlencode', 'urlsplit', 'urlunsplit')
+__all__ = ('parse_qs', 'quote', 'urlencode', 'urlsplit', 'urlunsplit')

@@ -47,7 +47,16 @@ class _ContentHandler(object):
         LOGGER.debug('%r encoding dict with encoding %s', self, encoding)
         if self.dict_to_bytes:
             return None, self.dict_to_bytes(obj_dict)
-        return encoding, self.dict_to_string(obj_dict).encode(encoding)
+        try:
+            return encoding, self.dict_to_string(obj_dict).encode(encoding)
+        except LookupError as error:
+            raise web.HTTPError(
+                406, 'failed to encode result %r', error,
+                reason='target charset {0} not found'.format(encoding))
+        except UnicodeEncodeError as error:
+            LOGGER.warning('failed to encode text as %s - %s, trying utf-8',
+                           encoding, str(error))
+            return 'utf-8', self.dict_to_string(obj_dict).encode('utf-8')
 
     def __repr__(self):
         return '<{}.{} for {} unpacks {}, packs {}>'.format(
@@ -125,6 +134,12 @@ class HandlerMixin(object):
     def __init__(self, *args, **kwargs):
         super(HandlerMixin, self).__init__(*args, **kwargs)
         self._request_body = None
+
+    @property
+    def registered_content_types(self):
+        """Yields the currently registered content types in some order."""
+        for content_type in _content_types.keys():
+            yield content_type
 
     def get_request_body(self):
         """

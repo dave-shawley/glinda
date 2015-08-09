@@ -1,8 +1,10 @@
 import json
+import re
 
-from tornado import httpclient, testing, web
+from tornado import testing, web
 import msgpack
 
+from examples import contentneg
 from glinda import content
 
 
@@ -24,21 +26,10 @@ KOREAN_TEXT = (u'\uc138\uacc4\ub97c \ud5a5\ud55c \ub300\ud654, '
                u'\ucef4\ud4e8\ud305.')
 
 
-class SimpleHandler(content.HandlerMixin, web.RequestHandler):
-
-    def get(self):
-        self.send_response(self.request.headers)
-        self.finish()
-
-    def post(self, *args, **kwargs):
-        self.send_response(self.get_request_body())
-        self.finish()
-
-
 class JsonContentTests(testing.AsyncHTTPTestCase):
 
     def get_app(self):
-        return web.Application([web.url('/', SimpleHandler)])
+        return web.Application([web.url('/', contentneg.HttpbinHandler)])
 
     def setUp(self):
         super(JsonContentTests, self).setUp()
@@ -54,7 +45,7 @@ class JsonContentTests(testing.AsyncHTTPTestCase):
         self.assertEqual(response.headers['Content-Type'],
                          'application/json; charset=utf-8')
         body = json.loads(response.body.decode('utf-8'))
-        self.assertEqual(body['Property'], 'returned in body')
+        self.assertEqual(body['headers']['Property'], 'returned in body')
 
     def test_that_default_charset_is_honored(self):
         response = self.fetch('/', method='POST',
@@ -63,7 +54,7 @@ class JsonContentTests(testing.AsyncHTTPTestCase):
         self.assertEqual(response.headers['Content-Type'],
                          'application/json; charset=utf-8')
         body = json.loads(response.body.decode('utf-8'))
-        self.assertEqual(body, {'name': u'Andr\u00E9'})
+        self.assertEqual(body['body']['name'], u'Andr\u00E9')
 
     def test_that_body_decode_failure_results_in_client_error(self):
         response = self.fetch('/', method='POST',
@@ -81,7 +72,10 @@ class JsonContentTests(testing.AsyncHTTPTestCase):
 class ContentSelectionTests(testing.AsyncHTTPTestCase):
 
     def get_app(self):
-        return web.Application([web.url('/', SimpleHandler)])
+        return web.Application([
+            web.url('/', contentneg.HttpbinHandler),
+            web.url('/rfc2295', contentneg.RFC2295Handler),
+        ])
 
     def setUp(self):
         super(ContentSelectionTests, self).setUp()
@@ -99,13 +93,13 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
         self.assertEqual(response.headers['Content-Type'],
                          'application/json; charset=utf-8')
         body = json.loads(response.body.decode('utf-8'))
-        self.assertEqual(body['Accept'], 'application/json')
+        self.assertEqual(body['headers']['Accept'], 'application/json')
 
         response = self.fetch('/', headers={'Accept': 'application/msgpack'})
         self.assertEqual(response.headers['Content-Type'],
                          'application/msgpack')
         body = msgpack.unpackb(response.body)
-        self.assertEqual(body[b'Accept'], b'application/msgpack')
+        self.assertEqual(body[b'headers'][b'Accept'], b'application/msgpack')
 
     def test_that_header_driven_translation_works(self):
         body = {'some': 'simple', 'and complex': ['body', 'elements']}
@@ -115,7 +109,8 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
                                   'Accept': 'application/json'})
         self.assertEqual(response.headers['Content-Type'],
                          'application/json; charset=utf-8')
-        self.assertEqual(json.loads(response.body.decode('utf-8')), body)
+        self.assertEqual(json.loads(response.body.decode('utf-8'))['body'],
+                         body)
 
     def test_that_no_acceptable_content_type_raises_406(self):
         response = self.fetch('/', headers={'Accept': 'application/xml'})
@@ -134,19 +129,41 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
         self.assertEqual(response.code, 200)
         self.assertEqual(response.headers['Content-Type'],
                          'application/json; charset=utf8')
-        self.assertEqual(json.loads(response.body.decode('utf-8')),
+        self.assertEqual(json.loads(response.body.decode('utf-8'))['body'],
                          json.loads(body))
+
+    def test_that_registered_types_are_available_to_handler(self):
+        # see RFC2295 section 5
+        alt_pattern = re.compile(
+            r'^{"[^"]*"\s+\d+(\.\d+)?\s+(?P<properties>.*)}$')
+        response = self.fetch('/rfc2295', headers={'Negotiate': 'vlist',
+                                                   'Accept': 'plain/text'})
+        self.assertEqual(response.code, 300)
+        alternatives = []
+        for type_info in response.headers['Alternatives'].split(','):
+            match = alt_pattern.match(type_info.strip())
+            for property in re.findall('{[^}]*}', match.group('properties')):
+                name, value = property[1:-1].split(' ', 1)
+                if name == 'type':
+                    alternatives.append(value)
+        self.assertEqual(sorted(alternatives),
+                         ['application/json', 'application/msgpack'])
 
 
 class TextEncodingTests(testing.AsyncHTTPTestCase):
 
+    @staticmethod
+    def unicode_dumper(body, **kwargs):
+        kwargs['ensure_ascii'] = False
+        return json.dumps(body, **kwargs)
+
     def get_app(self):
-        return web.Application([web.url('/', SimpleHandler)])
+        return web.Application([web.url('/', contentneg.HttpbinHandler)])
 
     def setUp(self):
         super(TextEncodingTests, self).setUp()
         content.register_text_type('application/json', 'utf-8',
-                                   json.dumps, json.loads)
+                                   self.unicode_dumper, json.loads)
 
     def tearDown(self):
         super(TextEncodingTests, self).tearDown()
@@ -162,5 +179,19 @@ class TextEncodingTests(testing.AsyncHTTPTestCase):
         })
         self.assertEqual(response.headers['Content-Type'],
                          'application/json; charset=euc_kr')
-        self.assertEqual(json.loads(response.body.decode('euc_kr')),
+        self.assertEqual(json.loads(response.body.decode('euc_kr'))['body'],
                          {'text': KOREAN_TEXT})
+
+    def test_that_unknown_encoding_raises_406(self):
+        response = self.fetch('/', headers={'Accept-Charset': 'foo'})
+        self.assertEqual(response.code, 406)
+
+    def test_that_encoding_failures_fall_back_to_utf8(self):
+        response = self.fetch('/?utf8=%e2%9c%93', headers={
+            'Accept-Charset': 'latin1',
+        })
+        self.assertEqual(response.code, 200)
+        self.assertEqual(response.headers['Content-Type'],
+                         'application/json; charset=utf-8')
+        decoded = json.loads(response.body.decode('utf-8'))
+        self.assertEqual(decoded['args'], {'utf8': [u'\u2713']})

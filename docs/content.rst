@@ -53,6 +53,85 @@ specified default value is used.
 Binary registrations are preferred over text since they do not require the
 character transcoding process.
 
+Once you have registered some content handlers, use the :class:`.HandlerMixin`
+class to de-serialize requests and serialize responses.  The following class
+mimics the GET and POST functionality of the excellent http://httpbin.org
+utility site.
+
+.. literalinclude:: ../examples/contentneg.py
+   :pyobject: HttpbinHandler
+
+When you run *examples/contentneg.py*, it will run a Tornado application
+listening on port 8000 with at least the JSON content handler enabled.
+If the ``msgpack`` module is available, then the *application/x-msgpack*
+content type will be enabled.  Likewise for the ``yaml`` module and
+*application/yaml*.  Assuming that you have the `PyYAML`_ package installed,
+then the following examples should work.
+
+A request that explicitly requests a JSON response will get one.
+
+.. code-block:: http
+
+   GET / HTTP/1.1
+   Accept: application/json
+   Accept-Encoding: gzip, deflate
+   Connection: keep-alive
+   Host: localhost:8000
+   User-Agent: HTTPie/0.9.2
+
+.. code-block:: http
+
+   HTTP/1.1 200 OK
+   Content-Length: 204
+   Content-Type: application/json; charset=utf-8
+   Date: Sun, 09 Aug 2015 17:00:30 GMT
+   Etag: "7bccfbf9d3f99b4b9bc88ec4f27b1913e5c0b27e"
+   Server: TornadoServer/4.2
+
+   {
+       "args": {},
+       "headers": {
+           "Accept": "application/json",
+           "Accept-Encoding": "gzip, deflate",
+           "Connection": "keep-alive",
+           "Host": "localhost:8000",
+           "User-Agent": "HTTPie/0.9.2"
+       },
+       "origin": "::1",
+       "url": "/"
+   }
+
+If you explicitly request *application/yaml*, then the same data will
+be encoded as a YAML document.
+
+.. code-block:: http
+
+   GET / HTTP/1.1
+   Accept: application/yaml
+   Accept-Encoding: gzip, deflate
+   Connection: keep-alive
+   Host: localhost:8000
+   User-Agent: HTTPie/0.9.2
+
+.. code-block:: http
+
+   HTTP/1.1 200 OK
+   Content-Length: 174
+   Content-Type: application/yaml; charset=utf-8
+   Date: Sun, 09 Aug 2015 17:04:23 GMT
+   Etag: "3d88b7fc99bb1b31807e88e4ea3d312d391c037b"
+   Server: TornadoServer/4.2
+
+   args: {}
+   headers: {Accept: application/yaml, Accept-Encoding: 'gzip, deflate',
+     Connection: keep-alive, Host: 'localhost:8000', User-Agent: HTTPie/0.9.2}
+   origin: ::1
+   url: /
+
+The request handler simple needs to use :meth:`HandlerMixin.get_request_body`
+method to retrieve the request body and :meth:`HandlerMixin.send_response` to
+transmit a response body.
+
 Functions
 ---------
 .. autofunction:: register_binary_type
@@ -65,3 +144,5 @@ Classes
 -------
 .. autoclass:: HandlerMixin
    :members:
+
+.. _PyYAML: http://pyyaml.org/

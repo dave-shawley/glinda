@@ -53,4 +53,4 @@ Response
 
 Example Test
 ------------
-.. literalinclude:: ../tests/example_test.py
+.. literalinclude:: ../examples/testing.py
