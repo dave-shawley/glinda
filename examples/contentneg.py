@@ -13,7 +13,9 @@ import logging
 import os
 
 from glinda import content, httpcompat
+from ietfparse import headers
 from tornado import httpserver, ioloop, web
+
 
 # The following will be supported if available
 def maybe_import(name):
@@ -52,6 +54,36 @@ class HttpbinHander(content.HandlerMixin, web.RequestHandler):
         }
 
 
+class RFC2295Handler(content.HandlerMixin, web.RequestHandler):
+    """Implements a bare-bones version of RFC2295 Negotiation."""
+
+    def prepare(self):
+        super(RFC2295Handler, self).prepare()
+        if not self._finished:
+            negotiate = headers.parse_list_header(
+                self.request.headers.get('Negotiate', ''))
+            if 'vlist' in negotiate:
+                variants = []
+                for content_type in self.registered_content_types:
+                    variants.append('{{"{0}" 1.0 {{type {1}}}}}'.format(
+                        self.request.uri, content_type))
+                self.set_header('Alternatives', ', '.join(variants))
+                self.set_header('TCN', 'list')
+
+    def send_response(self, response_dict):
+        try:
+            super(RFC2295Handler, self).send_response(response_dict)
+        except web.HTTPError as error:
+            if error.status_code == 406:
+                self.set_status(300, 'Multiple Choices')
+                self.set_header('Vary', 'negotiate, accept')
+                return
+            raise
+
+    def get(self):
+        self.send_response({'hi': 'there'})
+
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.DEBUG,
                         format='%(levelname)1.1s %(name)s: %(message)s')
@@ -65,7 +97,10 @@ if __name__ == '__main__':
         content.register_text_type('application/yaml', 'utf-8',
                                    dumper=yaml.dump, loader=yaml.load)
 
-    app = web.Application([web.url(r'/', HttpbinHander)], debug=True)
+    app = web.Application([
+        web.url(r'/', HttpbinHander),
+        web.url(r'/negotiate', RFC2295Handler),
+    ], debug=True)
     server = httpserver.HTTPServer(app)
     server.listen(int(os.environ.get('PORT', '8000')))
     iol = ioloop.IOLoop.instance()

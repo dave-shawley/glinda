@@ -1,4 +1,5 @@
 import json
+import re
 
 from tornado import testing, web
 import msgpack
@@ -71,7 +72,10 @@ class JsonContentTests(testing.AsyncHTTPTestCase):
 class ContentSelectionTests(testing.AsyncHTTPTestCase):
 
     def get_app(self):
-        return web.Application([web.url('/', contentneg.HttpbinHander)])
+        return web.Application([
+            web.url('/', contentneg.HttpbinHander),
+            web.url('/rfc2295', contentneg.RFC2295Handler),
+        ])
 
     def setUp(self):
         super(ContentSelectionTests, self).setUp()
@@ -105,7 +109,8 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
                                   'Accept': 'application/json'})
         self.assertEqual(response.headers['Content-Type'],
                          'application/json; charset=utf-8')
-        self.assertEqual(json.loads(response.body.decode('utf-8'))['body'], body)
+        self.assertEqual(json.loads(response.body.decode('utf-8'))['body'],
+                         body)
 
     def test_that_no_acceptable_content_type_raises_406(self):
         response = self.fetch('/', headers={'Accept': 'application/xml'})
@@ -126,6 +131,23 @@ class ContentSelectionTests(testing.AsyncHTTPTestCase):
                          'application/json; charset=utf8')
         self.assertEqual(json.loads(response.body.decode('utf-8'))['body'],
                          json.loads(body))
+
+    def test_that_registered_types_are_available_to_handler(self):
+        # see RFC2295 section 5
+        alt_pattern = re.compile(
+            r'^{"[^"]*"\s+\d+(\.\d+)?\s+(?P<properties>.*)}$')
+        response = self.fetch('/rfc2295', headers={'Negotiate': 'vlist',
+                                                   'Accept': 'plain/text'})
+        self.assertEqual(response.code, 300)
+        alternatives = []
+        for type_info in response.headers['Alternatives'].split(','):
+            match = alt_pattern.match(type_info.strip())
+            for property in re.findall('{[^}]*}', match.group('properties')):
+                name, value = property[1:-1].split(' ', 1)
+                if name == 'type':
+                    alternatives.append(value)
+        self.assertEqual(sorted(alternatives),
+                         ['application/json', 'application/msgpack'])
 
 
 class TextEncodingTests(testing.AsyncHTTPTestCase):

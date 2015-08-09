@@ -135,6 +135,12 @@ class HandlerMixin(object):
         super(HandlerMixin, self).__init__(*args, **kwargs)
         self._request_body = None
 
+    @property
+    def registered_content_types(self):
+        """Yields the currently registered content types in some order."""
+        for content_type in _content_types.keys():
+            yield content_type
+
     def get_request_body(self):
         """
         Decodes the request body and returns it.
