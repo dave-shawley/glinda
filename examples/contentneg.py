@@ -1,7 +1,7 @@
 #!/usr/bin/env python
-
 """
-Tornado application that handles content negotiation.
+
+Example tornado application that handles content negotiation.
 
 This is an example of using glinda's content negotiation functionality
 in a simple Tornado application.
@@ -35,7 +35,7 @@ class HttpbinHander(content.HandlerMixin, web.RequestHandler):
 
     def post(self):
         response = self.standard_response_dict
-        response['data'] = self.request.body.decode('utf-8')
+        response['data'] = repr(self.request.body)
         response['files'] = {}
         response['form'] = {}
         response['body'] = self.get_request_body()
