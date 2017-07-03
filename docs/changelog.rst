@@ -8,6 +8,8 @@ Changelog
   - Add directory of examples
   - Remove support for tornado newer than 4.5.  *This is tempory due to changes
     in the Tornado API*.
+  - Change Application.add_resource so that it inserts handlers before the
+    default error handler instead of after.
 
 * `0.0.3`_ (30 May 2015)
 
