@@ -210,10 +210,17 @@ class Service(object):
         :meth:`.add_response` which will create the resource if necessary.
 
         """
-        url = _quote_path(*path)
-        if url not in self._endpoints:
-            self.add_resource_callback(self, url)
-            self._endpoints.add(url)
+        self._register_endpoint(_quote_path(*path))
+
+    def _register_endpoint(self, path):
+        """
+        Register an endpoint with with this service.
+
+        :param path: quoted resource path
+        """
+        if path not in self._endpoints:
+            self.add_resource_callback(self, path)
+            self._endpoints.add(path)
 
     def add_response(self, request, response):
         """
@@ -224,7 +231,7 @@ class Service(object):
             handler receives `request`
 
         """
-        self.add_endpoint(request.resource)
+        self._register_endpoint(request.resource)
         self._responses[request.method, request.resource].append(response)
 
     def record_request(self, request):
