@@ -6,6 +6,8 @@ Changelog
   - Modify content negotiation to 406 when asked for an unknown character set
   - Add :attr:`glinda.content.HandlerMixin.registered_content_types`
   - Add directory of examples
+  - Remove support for tornado newer than 4.5.  *This is tempory due to changes
+    in the Tornado API*.
 
 * `0.0.3`_ (30 May 2015)
 

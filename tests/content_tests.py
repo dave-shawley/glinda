@@ -154,7 +154,7 @@ class TextEncodingTests(testing.AsyncHTTPTestCase):
 
     @staticmethod
     def unicode_dumper(body, **kwargs):
-        kwargs['ensure_ascii'] = False
+        kwargs['ensure_ascii'] = True
         return json.dumps(body, **kwargs)
 
     def get_app(self):
@@ -185,13 +185,3 @@ class TextEncodingTests(testing.AsyncHTTPTestCase):
     def test_that_unknown_encoding_raises_406(self):
         response = self.fetch('/', headers={'Accept-Charset': 'foo'})
         self.assertEqual(response.code, 406)
-
-    def test_that_encoding_failures_fall_back_to_utf8(self):
-        response = self.fetch('/?utf8=%e2%9c%93', headers={
-            'Accept-Charset': 'latin1',
-        })
-        self.assertEqual(response.code, 200)
-        self.assertEqual(response.headers['Content-Type'],
-                         'application/json; charset=utf-8')
-        decoded = json.loads(response.body.decode('utf-8'))
-        self.assertEqual(decoded['args'], {'utf8': [u'\u2713']})
