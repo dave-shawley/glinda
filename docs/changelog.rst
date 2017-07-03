@@ -1,7 +1,7 @@
 Changelog
 ---------
 
-* `Next Release`_
+* `0.1.0`_ (3 Jul 2017)
 
   - Modify content negotiation to 406 when asked for an unknown character set
   - Add :attr:`glinda.content.HandlerMixin.registered_content_types`
@@ -30,7 +30,8 @@ Changelog
   - Add :class:`glinda.testing.services.Request`
   - Add :class:`glinda.testing.services.Response`
 
-.. _Next Release: https://github.com/dave-shawley/glinda/compare/0.0.3...master
+.. _Next Release: https://github.com/dave-shawley/glinda/compare/0.1.0...master
+.. _0.1.0: https://github.com/dave-shawley/glinda/compare/0.0.3...0.1.0
 .. _0.0.3: https://github.com/dave-shawley/glinda/compare/0.0.2...0.0.3
 .. _0.0.2: https://github.com/dave-shawley/glinda/compare/0.0.1...0.0.2
 .. _0.0.1: https://github.com/dave-shawley/glinda/compare/0.0.0...0.0.1
