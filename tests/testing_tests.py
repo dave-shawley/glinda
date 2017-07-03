@@ -65,11 +65,11 @@ class EndpointTests(tornado.testing.AsyncTestCase):
     @tornado.testing.gen_test
     def test_that_endpoint_responds_with_programmed_response(self):
         service = self.service_layer['service']
-        service.add_response(services.Request('GET', '/resource'),
+        service.add_response(services.Request('GET', '/resource:test'),
                              services.Response(222))
 
         client = httpclient.AsyncHTTPClient()
-        response = yield client.fetch(service.url_for('resource'))
+        response = yield client.fetch(service.url_for('resource:test'))
         self.assertEqual(response.code, 222)
 
 
