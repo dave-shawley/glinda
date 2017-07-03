@@ -367,7 +367,8 @@ class _Application(web.Application):
         """
         handler = web.url(resource, _ServiceHandler,
                           kwargs={'service': service})
-        self.handlers[-1][1].append(handler)
+        # leave the error handler at the end
+        self.handlers[-1][1].insert(-1, handler)
 
 
 class _ServiceHandler(web.RequestHandler):
