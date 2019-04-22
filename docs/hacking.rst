@@ -10,8 +10,7 @@ though.
 - All tests pass.  This is non-negotiable.  If you cannot get a particular
   test case to pass.  Submit the PR on github and we can probably work
   through it.  What I won't do is accept code that breaks a pile of tests
-  without any effort to fix them.  Run ``env/bin/detox`` or ``env/bin/tox``
-  to run the tests.
+  without any effort to fix them.  Run ``env/bin/tox`` to run the tests.
 
 - Features are documented.  I use `sphinx`_ for all documentation.  Edit
   the documentation sources as required and make sure that running
@@ -44,7 +43,7 @@ test, document, and generally hack on the code base.
 
 .. code-block:: sh
 
-   $ pyvenv env
+   $ python3 -mvenv env
    $ env/bin/pip install -r dev-requirements.txt
 
 Running Tests
