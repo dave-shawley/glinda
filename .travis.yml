@@ -3,7 +3,6 @@ python:
 - "2.7"
 - "3.5"
 - "3.6"
-- "3.7"
 - pypy
 install:
 - pip install -r requirements.txt -r test-requirements.txt
@@ -19,4 +18,4 @@ deploy:
     tags: true
     repo: dave-shawley/glinda
     all_branches: true
-    python: 3.4
+    python: 3.6
