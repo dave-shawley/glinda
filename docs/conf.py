@@ -7,7 +7,7 @@ from glinda import __version__, version_info
 
 
 project = 'glinda'
-copyright = '2015, Dave Shawley'
+copyright = '2015-2019, Dave Shawley'
 version = __version__
 release = '.'.join(str(x) for x in version_info[:2])
 
@@ -28,6 +28,6 @@ html_static_path = []
 exclude_patterns = []
 
 intersphinx_mapping = {
-    'python': ('http://docs.python.org/', None),
-    'tornado': ('http://tornadoweb.org/en/latest/', None),
+    'python': ('https://docs.python.org/', None),
+    'tornado': ('https://www.tornadoweb.org/en/latest/', None),
 }

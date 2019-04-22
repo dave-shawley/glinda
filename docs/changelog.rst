@@ -1,6 +1,18 @@
 Changelog
 ---------
 
+* `1.0.0`_ (22 Apr 2019)
+
+  - Adjust supported Python versions
+
+    - Add support for 3.5, 3.6, & 3.7
+    - Drop support for 3.3, & 3.4
+
+  - Adjust supported Tornado versions
+
+    - Add support for 4.5, 5, and 6
+    - Drop support for 3-4.5
+
 * `0.1.0`_ (3 Jul 2017)
 
   - Modify content negotiation to 406 when asked for an unknown character set
@@ -30,7 +42,8 @@ Changelog
   - Add :class:`glinda.testing.services.Request`
   - Add :class:`glinda.testing.services.Response`
 
-.. _Next Release: https://github.com/dave-shawley/glinda/compare/0.1.0...master
+.. _Next Release: https://github.com/dave-shawley/glinda/compare/1.0.0...master
+.. _1.0.0: https://github.com/dave-shawley/glinda/compare/0.1.0...1.0.0
 .. _0.1.0: https://github.com/dave-shawley/glinda/compare/0.0.3...0.1.0
 .. _0.0.3: https://github.com/dave-shawley/glinda/compare/0.0.2...0.0.3
 .. _0.0.2: https://github.com/dave-shawley/glinda/compare/0.0.1...0.0.2
