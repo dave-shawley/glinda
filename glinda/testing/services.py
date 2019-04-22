@@ -42,7 +42,7 @@ class ServiceLayer(object):
     behavior as item lookup as well (e.g., ``__getitem__``)::
 
         >>> from tornado.ioloop import IOLoop
-        >>> services = ServiceLayer(IOLoop.instance())
+        >>> services = ServiceLayer()
         >>> services['service-name'] is services.get_service('service-name')
         True
 
@@ -50,15 +50,14 @@ class ServiceLayer(object):
     respond by calling :meth:`Service.add_response` method.
 
         >>> from tornado import httpclient, ioloop
-        >>> iol = ioloop.IOLoop.instance()
-        >>> services = ServiceLayer(iol)
+        >>> services = ServiceLayer()
         >>> service = services.get_service('endpoint')
         >>> service.add_response(Request('GET', '/endpoint'),
         ...                      Response(222))
         >>> def get():
-        ...    client = httpclient.AsyncHTTPClient(io_loop=iol)
+        ...    client = httpclient.AsyncHTTPClient()
         ...    return client.fetch(service.url_for('endpoint'))
-        >>> rsp = iol.run_sync(get)
+        >>> rsp = ioloop.IOLoop.instance().run_sync(get)
         >>> rsp.code
         222
         >>>
@@ -69,18 +68,11 @@ class ServiceLayer(object):
 
     """
 
-    def __init__(self, io_loop=None):
-        """
-        Initialize the service layer.
-
-        :param tornado.ioloop.IOLoop io_loop: optional IOLoop instance
-            to attach to.  If unspecified, the default loop is used.
-
-        """
+    def __init__(self):
+        """Initialize the service layer."""
         super(ServiceLayer, self).__init__()
         self._application = _Application()
-        self._server = httpserver.HTTPServer(self._application,
-                                             io_loop=io_loop)
+        self._server = httpserver.HTTPServer(self._application)
         self._services = {}
 
     def get_service(self, service):
@@ -368,7 +360,7 @@ class _Application(web.Application):
         handler = web.url(resource, _ServiceHandler,
                           kwargs={'service': service})
         # leave the error handler at the end
-        self.handlers[-1][1].insert(-1, handler)
+        self.default_router.rules.insert(-1, handler)
 
 
 class _ServiceHandler(web.RequestHandler):
