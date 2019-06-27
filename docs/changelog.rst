@@ -1,6 +1,10 @@
 Changelog
 ---------
 
+* `1.0.1`_ (27 Jun 2019)
+
+  - Fix errant usage of :class:`tornado.web.ErrorHandler`
+
 * `1.0.0`_ (22 Apr 2019)
 
   - Adjust supported Python versions
@@ -42,7 +46,8 @@ Changelog
   - Add :class:`glinda.testing.services.Request`
   - Add :class:`glinda.testing.services.Response`
 
-.. _Next Release: https://github.com/dave-shawley/glinda/compare/1.0.0...master
+.. _Next Release: https://github.com/dave-shawley/glinda/compare/1.0.1...master
+.. _1.0.1: https://github.com/dave-shawley/glinda/compare/1.0.0...1.0.1
 .. _1.0.0: https://github.com/dave-shawley/glinda/compare/0.1.0...1.0.0
 .. _0.1.0: https://github.com/dave-shawley/glinda/compare/0.0.3...0.1.0
 .. _0.0.3: https://github.com/dave-shawley/glinda/compare/0.0.2...0.0.3
