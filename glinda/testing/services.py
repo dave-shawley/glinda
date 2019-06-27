@@ -13,6 +13,7 @@ Classes for testing applications that make asynchronous HTTP requests.
 
 """
 import collections
+import logging
 import socket
 
 from tornado import gen, httpserver, httputil, web
@@ -179,6 +180,8 @@ class Service(object):
         """
         super(Service, self).__init__()
         self.name = name
+        self.logger = logging.getLogger('.'.join([
+            __package__, 'Service', name]))
         self.add_resource_callback = add_resource_callback
 
         self.acceptor = socket.socket(socket.AF_INET, socket.SOCK_STREAM,
@@ -190,6 +193,8 @@ class Service(object):
         self._requests = collections.defaultdict(list)
         self._responses = collections.defaultdict(list)
         self._endpoints = set()
+
+        self.logger.info('listening on %s', self.host)
 
     def add_endpoint(self, *path):
         """
@@ -211,6 +216,7 @@ class Service(object):
         :param path: quoted resource path
         """
         if path not in self._endpoints:
+            self.logger.info('adding endpoint for %s', path)
             self.add_resource_callback(self, path)
             self._endpoints.add(path)
 
@@ -234,6 +240,8 @@ class Service(object):
             client request made to one of the services endpoints
 
         """
+        self.logger.debug('processing request: method=%s path=%s',
+                          request.method, request.path)
         req = Request(request.method, request.path)
         req.body = request.body
         req.headers.update(request.headers)
@@ -277,8 +285,16 @@ class Service(object):
         """
         key = tornado_request.method, tornado_request.path
         try:
-            return self._responses[key].pop(0)
+            response = self._responses[key].pop(0)
+            self.logger.debug('returning response for %s %s: %r',
+                              tornado_request.method, tornado_request.path,
+                              response)
+            return response
         except IndexError:
+            self.logger.error(
+                'failed to find response for %s %s: response keys=%r',
+                tornado_request.method, tornado_request.uri,
+                list(self._responses.keys()))
             raise web.HTTPError(456, 'Unexpected request - %s %s',
                                 tornado_request.method, tornado_request.uri,
                                 reason='Test Configuration Error')
