@@ -72,6 +72,24 @@ class EndpointTests(tornado.testing.AsyncTestCase):
         response = yield client.fetch(service.url_for('resource:test'))
         self.assertEqual(response.code, 222)
 
+    @tornado.testing.gen_test
+    def test_that_empty_path_is_usable(self):
+        service = self.service_layer['service']
+        service.add_response(services.Request('GET', '/'),
+                             services.Response(222))
+
+        client = httpclient.AsyncHTTPClient()
+        response = yield client.fetch(service.url_for('/'))
+        self.assertEqual(response.code, 222)
+
+    @tornado.testing.gen_test
+    def test_that_error_handler_works(self):
+        service = self.service_layer['service']
+
+        client = httpclient.AsyncHTTPClient()
+        response = yield client.fetch(service.url_for('/'), raise_error=False)
+        self.assertEqual(response.code, 456)
+
 
 class RequestRecordingTests(tornado.testing.AsyncTestCase):
 

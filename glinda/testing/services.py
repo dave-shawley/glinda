@@ -345,7 +345,7 @@ class _Application(web.Application):
 
     def __init__(self):
         # overridden to install a default handler
-        super(_Application, self).__init__([web.url('/', web.ErrorHandler)])
+        super(_Application, self).__init__([web.url('/', _ErrorHandler)])
 
     def add_resource(self, service, resource):
         """
@@ -361,6 +361,11 @@ class _Application(web.Application):
                           kwargs={'service': service})
         # leave the error handler at the end
         self.default_router.rules.insert(-1, handler)
+
+
+class _ErrorHandler(web.RequestHandler):
+    def prepare(self):
+        raise web.HTTPError(status_code=456, reason='Unexpected Request')
 
 
 class _ServiceHandler(web.RequestHandler):
